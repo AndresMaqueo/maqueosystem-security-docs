@@ -1,0 +1,27 @@
+name: Security Baseline Assertion
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/**
+      - docs/**
+
+jobs:
+  baseline:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run security baseline assertions
+        shell: pwsh
+        run: |
+          ./scripts/assert-security-baseline.ps1
+
+      - name: Upload assertion results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-baseline-assertions
+          path: docs/audit/**/assertions.json
