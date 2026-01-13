@@ -1,11 +1,9 @@
-name: Security Baseline Assertion
+name: Security Baseline
 
 on:
-  workflow_dispatch:
   push:
-    paths:
-      - scripts/**
-      - docs/**
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   baseline:
@@ -18,10 +16,12 @@ jobs:
       - name: Run security baseline assertions
         shell: pwsh
         run: |
-          ./scripts/assert-security-baseline.ps1
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/assert-security-baseline.ps1
 
-      - name: Upload assertion results
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-baseline-assertions
-          path: docs/audit/**/assertions.json
+      - name: Enforce minimum security posture
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/enforce-minimum-score.ps1 `
+            -MinimumScore 90
