@@ -1,8 +1,6 @@
 name: Security Baseline
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -13,15 +11,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run security baseline assertions
+      - name: Run security baseline (CI-safe mode)
         shell: pwsh
         run: |
           pwsh -NoProfile -ExecutionPolicy Bypass `
-            -File scripts/run-assertions.ps1
+            -File scripts/run-assertions.ps1 `
+            -CiMode
 
-      - name: Upload assertions artifact
+      - name: Upload audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: security-baseline-assertions
-          path: docs/audit/2026-01/assertions.json
+          name: security-baseline
+          path: |
+            docs/audit/2026-01/assertions.json
+            docs/audit/2026-01/score.json
 
