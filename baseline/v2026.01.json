@@ -1,0 +1,34 @@
+{
+  "baselineVersion": "v2026.01",
+  "scope": "windows-endpoint",
+  "controls": [
+    {
+      "id": "DG-001",
+      "name": "Virtualization-Based Security",
+      "assertion": "VirtualizationBasedSecurityStatus == 2",
+      "weight": 20,
+      "required": true
+    },
+    {
+      "id": "CI-001",
+      "name": "Hypervisor-Enforced Code Integrity",
+      "assertion": "CodeIntegrityPolicyEnforcementStatus == 2",
+      "weight": 25,
+      "required": true
+    },
+    {
+      "id": "SB-001",
+      "name": "Secure Boot",
+      "assertion": "SecureBoot == true",
+      "weight": 20,
+      "required": true
+    },
+    {
+      "id": "BL-001",
+      "name": "BitLocker Enabled",
+      "assertion": "BitLockerProtection == true",
+      "weight": 15,
+      "required": true
+    }
+  ]
+}

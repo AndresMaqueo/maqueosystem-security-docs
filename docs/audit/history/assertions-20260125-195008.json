@@ -1,0 +1,34 @@
+[
+  {
+    "ControlId": "BL-001",
+    "Name": "BitLocker Enabled",
+    "Expected": "On",
+    "Actual": 1,
+    "Weight": 15,
+    "Pass": true
+  },
+  {
+    "ControlId": "DG-001",
+    "Name": "Virtualization-Based Security",
+    "Expected": 2,
+    "Actual": 2,
+    "Weight": 20,
+    "Pass": true
+  },
+  {
+    "ControlId": "CI-001",
+    "Name": "Hypervisor-Enforced Code Integrity",
+    "Expected": 2,
+    "Actual": 2,
+    "Weight": 25,
+    "Pass": true
+  },
+  {
+    "ControlId": "SB-001",
+    "Name": "Secure Boot Enabled",
+    "Expected": true,
+    "Actual": true,
+    "Weight": 20,
+    "Pass": true
+  }
+]
