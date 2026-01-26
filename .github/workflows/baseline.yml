@@ -11,14 +11,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run security baseline assertions
+      - name: Run security baseline
         shell: pwsh
         run: |
-          Write-Host "Running security baseline assertions..."
-          ./scripts/assert-security-baseline.ps1
+          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-assertions.ps1
 
-      - name: Upload assertions artifact
+      - name: Upload audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: security-baseline-assertions
-          path: docs/audit/2026-01/assertions.json
+          name: security-baseline
+          path: |
+            docs/audit/2026-01/assertions.json
+            docs/audit/2026-01/score.json
