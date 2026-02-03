@@ -1,0 +1,8 @@
+{
+  "description": "Initial evidence file for signing test",
+  "action": "PKI audit evidence",
+  "system": "MAQUEOSYSTEM",
+  "host": "MAQUEOSYSTEM",
+  "user": "Administrador",
+  "timestamp": "2026-02-02T23:06:50.5628701-06:00"
+}
