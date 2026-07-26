@@ -1,20 +1,18 @@
-$dg = Get-CimInstance -Namespace root\Microsoft\Windows\DeviceGuard `
-  -ClassName Win32_DeviceGuard
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-[pscustomobject]@{
-  ControlId = "DG-001"
-  Name      = "Virtualization-Based Security"
-  Expected  = 2
-  Actual    = $dg.VirtualizationBasedSecurityStatus
-  Weight    = 20
-  Pass      = ($dg.VirtualizationBasedSecurityStatus -eq 2)
+$deviceGuard = Get-CimInstance -Namespace 'root\Microsoft\Windows\DeviceGuard' -ClassName 'Win32_DeviceGuard'
+
+[pscustomobject][ordered]@{
+    ControlId = 'DG-001'
+    Actual    = [int]$deviceGuard.VirtualizationBasedSecurityStatus
+    Pass      = ([int]$deviceGuard.VirtualizationBasedSecurityStatus -eq 2)
+    Message   = "VirtualizationBasedSecurityStatus is '$($deviceGuard.VirtualizationBasedSecurityStatus)'."
 }
 
-[pscustomobject]@{
-  ControlId = "CI-001"
-  Name      = "Hypervisor-Enforced Code Integrity"
-  Expected  = 2
-  Actual    = $dg.CodeIntegrityPolicyEnforcementStatus
-  Weight    = 25
-  Pass      = ($dg.CodeIntegrityPolicyEnforcementStatus -eq 2)
+[pscustomobject][ordered]@{
+    ControlId = 'CI-001'
+    Actual    = [int]$deviceGuard.CodeIntegrityPolicyEnforcementStatus
+    Pass      = ([int]$deviceGuard.CodeIntegrityPolicyEnforcementStatus -eq 2)
+    Message   = "CodeIntegrityPolicyEnforcementStatus is '$($deviceGuard.CodeIntegrityPolicyEnforcementStatus)'."
 }
