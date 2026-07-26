@@ -13,9 +13,12 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $resolvedBaselinePath = Join-Path $repositoryRoot $BaselinePath
 $assertionDirectory = Join-Path $PSScriptRoot 'assert'
 $baselineModulePath = Join-Path $PSScriptRoot 'lib/Baseline.psm1'
+$validationModulePath = Join-Path $PSScriptRoot 'lib/Validation.psm1'
 
-if (-not (Test-Path -LiteralPath $baselineModulePath -PathType Leaf)) {
-    throw "Baseline module not found: $baselineModulePath"
+foreach ($requiredModulePath in @($baselineModulePath, $validationModulePath)) {
+    if (-not (Test-Path -LiteralPath $requiredModulePath -PathType Leaf)) {
+        throw "Required module not found: $requiredModulePath"
+    }
 }
 
 if (-not (Test-Path -LiteralPath $assertionDirectory -PathType Container)) {
@@ -23,6 +26,7 @@ if (-not (Test-Path -LiteralPath $assertionDirectory -PathType Container)) {
 }
 
 Import-Module -Name $baselineModulePath -Force -ErrorAction Stop
+Import-Module -Name $validationModulePath -Force -ErrorAction Stop
 
 $baseline = Import-SecurityBaseline -Path $resolvedBaselinePath
 $baselineControls = @(Get-BaselineControls -Baseline $baseline)
@@ -50,84 +54,16 @@ foreach ($script in $assertionScripts) {
     }
 }
 
-$duplicateResultIds = @(
-    $rawResults |
-        Where-Object { $_.PSObject.Properties.Name -contains 'ControlId' } |
-        Group-Object ControlId |
-        Where-Object Count -gt 1 |
-        ForEach-Object Name
-)
+$validation = Resolve-AssertionResults `
+    -RawResults @($rawResults) `
+    -BaselineControls $baselineControls `
+    -BaselineById $baselineById
 
-if ($duplicateResultIds.Count -gt 0) {
-    $executionErrors.Add("Duplicate assertion results: $($duplicateResultIds -join ', ')")
+$orderedResults = @($validation.Results)
+foreach ($validationError in @($validation.Errors)) {
+    $executionErrors.Add([string]$validationError)
 }
 
-$normalizedResults = [System.Collections.Generic.List[object]]::new()
-$observedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-foreach ($result in $rawResults) {
-    $properties = @($result.PSObject.Properties.Name)
-    $isValidResult = $true
-
-    foreach ($requiredProperty in @('ControlId', 'Actual', 'Pass')) {
-        if ($properties -notcontains $requiredProperty) {
-            $executionErrors.Add("An assertion result is missing required property '$requiredProperty'.")
-            $isValidResult = $false
-        }
-    }
-
-    if (-not $isValidResult) {
-        continue
-    }
-
-    $controlId = [string]$result.ControlId
-    if ([string]::IsNullOrWhiteSpace($controlId)) {
-        $executionErrors.Add('An assertion returned an empty ControlId.')
-        continue
-    }
-
-    if (-not $baselineById.ContainsKey($controlId)) {
-        $executionErrors.Add("Assertion returned unknown control ID '$controlId'.")
-        continue
-    }
-
-    if (-not $observedIds.Add($controlId)) {
-        continue
-    }
-
-    $definition = $baselineById[$controlId]
-    $normalizedResults.Add([pscustomobject][ordered]@{
-        ControlId = $controlId
-        Name      = [string]$definition.name
-        Expected  = [string]$definition.assertion
-        Actual    = $result.Actual
-        Weight    = [double]$definition.weight
-        Required  = [bool]$definition.required
-        Status    = if ([bool]$result.Pass) { 'Pass' } else { 'Fail' }
-        Pass      = [bool]$result.Pass
-        Message   = if ($properties -contains 'Message') { [string]$result.Message } else { $null }
-    })
-}
-
-foreach ($definition in $baselineControls) {
-    $controlId = [string]$definition.id
-    if ([bool]$definition.required -and -not $observedIds.Contains($controlId)) {
-        $normalizedResults.Add([pscustomobject][ordered]@{
-            ControlId = $controlId
-            Name      = [string]$definition.name
-            Expected  = [string]$definition.assertion
-            Actual    = $null
-            Weight    = [double]$definition.weight
-            Required  = $true
-            Status    = 'Error'
-            Pass      = $false
-            Message   = 'Required control did not produce an assertion result.'
-        })
-        $executionErrors.Add("Required control '$controlId' did not produce a result.")
-    }
-}
-
-$orderedResults = @($normalizedResults | Sort-Object ControlId)
 $totalWeight = [double](($baselineControls | Measure-Object weight -Sum).Sum)
 $passedWeight = [double](($orderedResults | Where-Object Pass | Measure-Object Weight -Sum).Sum)
 $score = if ($totalWeight -gt 0) { [math]::Round(($passedWeight / $totalWeight) * 100, 2) } else { 0 }
