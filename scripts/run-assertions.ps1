@@ -3,7 +3,7 @@ param(
     [switch]$CiMode,
 
     [ValidateNotNullOrEmpty()]
-    [string]$BaselinePath = "baseline/v2026.01.json"
+    [string]$BaselinePath = 'baseline/v2026.01.json'
 )
 
 Set-StrictMode -Version Latest
@@ -12,55 +12,21 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $resolvedBaselinePath = Join-Path $repositoryRoot $BaselinePath
 $assertionDirectory = Join-Path $PSScriptRoot 'assert'
+$baselineModulePath = Join-Path $PSScriptRoot 'lib/Baseline.psm1'
 
-if (-not (Test-Path -LiteralPath $resolvedBaselinePath -PathType Leaf)) {
-    throw "Baseline file not found: $resolvedBaselinePath"
+if (-not (Test-Path -LiteralPath $baselineModulePath -PathType Leaf)) {
+    throw "Baseline module not found: $baselineModulePath"
 }
 
 if (-not (Test-Path -LiteralPath $assertionDirectory -PathType Container)) {
     throw "Assertion directory not found: $assertionDirectory"
 }
 
-$baseline = Get-Content -LiteralPath $resolvedBaselinePath -Raw | ConvertFrom-Json
+Import-Module -Name $baselineModulePath -Force -ErrorAction Stop
 
-if ([string]::IsNullOrWhiteSpace([string]$baseline.baselineVersion)) {
-    throw 'The baseline must define baselineVersion.'
-}
-
-$baselineControls = @($baseline.controls)
-if ($baselineControls.Count -eq 0) {
-    throw 'The baseline must define at least one control.'
-}
-
-$duplicateBaselineIds = @(
-    $baselineControls |
-        Group-Object id |
-        Where-Object Count -gt 1 |
-        ForEach-Object Name
-)
-
-if ($duplicateBaselineIds.Count -gt 0) {
-    throw "Duplicate control IDs in baseline: $($duplicateBaselineIds -join ', ')"
-}
-
-foreach ($control in $baselineControls) {
-    if ([string]::IsNullOrWhiteSpace([string]$control.id)) {
-        throw 'Every baseline control must define an id.'
-    }
-
-    if ([string]::IsNullOrWhiteSpace([string]$control.name)) {
-        throw "Baseline control '$($control.id)' must define a name."
-    }
-
-    if ([double]$control.weight -le 0) {
-        throw "Baseline control '$($control.id)' must have a positive weight."
-    }
-}
-
-$baselineById = @{}
-foreach ($control in $baselineControls) {
-    $baselineById[[string]$control.id] = $control
-}
+$baseline = Import-SecurityBaseline -Path $resolvedBaselinePath
+$baselineControls = @(Get-BaselineControls -Baseline $baseline)
+$baselineById = New-BaselineControlIndex -Baseline $baseline
 
 $rawResults = [System.Collections.Generic.List[object]]::new()
 $executionErrors = [System.Collections.Generic.List[string]]::new()
@@ -101,11 +67,17 @@ $observedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringC
 
 foreach ($result in $rawResults) {
     $properties = @($result.PSObject.Properties.Name)
+    $isValidResult = $true
+
     foreach ($requiredProperty in @('ControlId', 'Actual', 'Pass')) {
         if ($properties -notcontains $requiredProperty) {
             $executionErrors.Add("An assertion result is missing required property '$requiredProperty'.")
-            continue
+            $isValidResult = $false
         }
+    }
+
+    if (-not $isValidResult) {
+        continue
     }
 
     $controlId = [string]$result.ControlId
