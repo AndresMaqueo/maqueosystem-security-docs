@@ -1,10 +1,11 @@
-$sb = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-[pscustomobject]@{
-  ControlId = "SB-001"
-  Name      = "Secure Boot Enabled"
-  Expected  = $true
-  Actual    = $sb
-  Weight    = 20
-  Pass      = ($sb -eq $true)
+$secureBootEnabled = Confirm-SecureBootUEFI
+
+[pscustomobject][ordered]@{
+    ControlId = 'SB-001'
+    Actual    = [bool]$secureBootEnabled
+    Pass      = ([bool]$secureBootEnabled -eq $true)
+    Message   = "Secure Boot enabled state is '$secureBootEnabled'."
 }
