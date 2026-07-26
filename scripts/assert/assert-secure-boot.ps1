@@ -1,11 +1,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$secureBootEnabled = Confirm-SecureBootUEFI
+$resultModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'lib/Result.psm1'
+Import-Module -Name $resultModulePath -Force -ErrorAction Stop
 
-[pscustomobject][ordered]@{
-    ControlId = 'SB-001'
-    Actual    = [bool]$secureBootEnabled
-    Pass      = ([bool]$secureBootEnabled -eq $true)
-    Message   = "Secure Boot enabled state is '$secureBootEnabled'."
-}
+$secureBootEnabled = [bool](Confirm-SecureBootUEFI)
+
+New-ControlResult `
+    -ControlId 'SB-001' `
+    -Actual $secureBootEnabled `
+    -Pass $secureBootEnabled `
+    -Message "Secure Boot enabled state is '$secureBootEnabled'."
