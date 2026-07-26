@@ -5,9 +5,9 @@
 [![Security](https://img.shields.io/badge/Security-Evidence--Based-2EA44F?style=flat-square)](#control-summary)
 [![Status](https://img.shields.io/badge/Status-Active%20Reference%20Baseline-6F42C1?style=flat-square)](#baseline-scope)
 
-A public, non-sensitive security baseline for a Windows 11 Pro endpoint, focused on hardware-backed trust, deterministic controls, cryptographic evidence, drift detection, and audit-ready documentation.
+A public, non-sensitive security baseline for a Windows 11 Pro endpoint, focused on deterministic control evaluation, versioned evidence, drift detection, and audit-ready documentation.
 
-> This repository documents a point-in-time security posture and the mechanisms used to verify it. It does not replace organizational policy, managed security operations, independent attestation, or an external audit.
+> This repository documents a point-in-time security posture and the mechanisms used to evaluate it. It does not replace organizational policy, managed security operations, independent attestation, or an external audit.
 
 ## Contents
 
@@ -19,10 +19,13 @@ A public, non-sensitive security baseline for a Windows 11 Pro endpoint, focused
 - [Verification workflow](#verification-workflow)
 - [Quick review guide](#quick-review-guide)
 - [Security model highlights](#security-model-highlights)
+- [Intended audience](#intended-audience)
 - [Limitations](#limitations)
 - [Security reporting](#security-reporting)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
+- [License](#license)
+- [Author](#author)
 
 ## Baseline scope
 
@@ -39,10 +42,9 @@ A public, non-sensitive security baseline for a Windows 11 Pro endpoint, focused
 
 This repository is designed to demonstrate:
 
-- hardware-backed trust;
 - deterministic security controls;
 - reproducible validation;
-- cryptographically verifiable evidence;
+- versioned evidence generation;
 - control traceability;
 - drift detection;
 - audit readiness;
@@ -52,40 +54,38 @@ This repository is designed to demonstrate:
 
 ```mermaid
 flowchart TD
-    A[Hardware Root of Trust<br/>TPM 2.0] --> B[Secure Boot]
-    B --> C[Measured and trusted startup]
-    C --> D[VBS / HVCI]
-    D --> E[Protected Windows runtime]
-    E --> F[BitLocker and firewall controls]
-    F --> G[PowerShell assertions]
-    G --> H[Evidence manifest]
-    H --> I[SHA-256 and CMS signature]
-    I --> J[CI validation and audit review]
+    A[Windows endpoint state] --> B[PowerShell assertions]
+    B --> C[Versioned baseline evaluation]
+    C --> D[Assertions JSON]
+    C --> E[Score JSON]
+    D --> F[GitHub Actions artifact]
+    E --> F
+    D --> G[Optional local hashing and signing workflows]
+    E --> G
+    F --> H[Technical review]
+    G --> H
 ```
 
 ### Architecture domains
 
-- **Hardware root of trust:** TPM 2.0 and platform trust anchors.
-- **Boot integrity:** Secure Boot and trusted startup chain.
+- **Boot integrity:** Secure Boot state evaluation.
 - **Runtime isolation:** Virtualization-Based Security and Hypervisor-Enforced Code Integrity.
-- **Endpoint protection:** BitLocker, Windows Firewall, Defender-related controls, and local hardening.
-- **Evidence plane:** deterministic assertions, hashes, signed manifests, and traceability records.
-- **Validation plane:** local verification and GitHub Actions-based checks.
+- **Disk protection:** BitLocker protection-state evaluation.
+- **Evidence plane:** JSON assertion and score outputs, with optional local hashing or signing workflows.
+- **Automation plane:** GitHub Actions executes the CI-safe baseline and uploads generated JSON artifacts.
 
 ## Control summary
 
-| Control ID | Control | Expected state | Evidence type |
-|---|---|---|---|
-| `SB-001` | Secure Boot | Enabled | PowerShell assertion |
-| `TPM-001` | TPM | Present and ready | PowerShell assertion |
-| `BL-001` | BitLocker | Enabled | PowerShell assertion |
-| `VBS-001` | Virtualization-Based Security | Enabled | PowerShell assertion |
-| `HVCI-001` | Memory integrity / HVCI | Enabled | PowerShell assertion |
-| `FW-001` | Windows Firewall | Enabled on all profiles | PowerShell assertion |
-| `EVID-001` | Evidence integrity | SHA-256 verified | Hash manifest |
-| `SIGN-001` | Evidence authenticity | CMS signature present | Signed evidence package |
+The authoritative control catalogue is [`baseline/v2026.01.json`](baseline/v2026.01.json).
 
-> This table is an overview. The versioned scripts and evidence files are the authoritative source for the evaluated state.
+| Control ID | Control | Implemented assertion | Weight |
+|---|---|---|---:|
+| `DG-001` | Virtualization-Based Security | `VirtualizationBasedSecurityStatus == 2` | 20 |
+| `CI-001` | Hypervisor-Enforced Code Integrity | `CodeIntegrityPolicyEnforcementStatus == 2` | 25 |
+| `SB-001` | Secure Boot | `SecureBoot == true` | 20 |
+| `BL-001` | BitLocker Enabled | `BitLockerProtection == true` | 15 |
+
+> Only controls present in the versioned baseline are listed as implemented controls. Other platform characteristics may be discussed as architectural context but are not represented as evaluated controls unless they exist in the baseline and assertion scripts.
 
 ### Interpretation model
 
@@ -93,10 +93,11 @@ A control result should be interpreted together with:
 
 1. the baseline version;
 2. the device and operating-system context;
-3. the assertion method;
+3. the implemented assertion method;
 4. the evidence timestamp;
-5. the integrity and signature verification result;
-6. any documented exception or drift.
+5. the generated assertion and score outputs;
+6. any separately generated hash or signature material;
+7. any documented exception or drift.
 
 A passing assertion confirms the observed state at collection time; it does not independently establish continuous compliance.
 
@@ -104,7 +105,7 @@ A passing assertion confirms the observed state at collection time; it does not 
 
 ### Architecture
 
-- hardware root of trust;
+- hardware root of trust concepts;
 - Secure Boot trust chain;
 - VBS and HVCI model;
 - trust boundaries;
@@ -114,11 +115,11 @@ A passing assertion confirms the observed state at collection time; it does not 
 ### Audit evidence
 
 - deterministic PowerShell assertions;
-- evidence manifests;
-- SHA-256 hashes;
-- CMS / PKCS#7 signatures;
-- drift detection;
-- scored security posture.
+- JSON assertion results;
+- scored security posture;
+- history snapshots;
+- optional SHA-256 digest generation;
+- optional local signing workflows.
 
 ### Governance
 
@@ -132,10 +133,10 @@ A passing assertion confirms the observed state at collection time; it does not 
 ### Automation
 
 - assertion scripts;
-- validation logic;
+- baseline evaluation logic;
 - evidence generation;
-- evidence signing;
-- CI validation workflows;
+- GitHub Actions execution;
+- artifact upload;
 - GitHub Pages publication.
 
 ## Verification workflow
@@ -144,55 +145,54 @@ A passing assertion confirms the observed state at collection time; it does not 
 sequenceDiagram
     participant Host as Windows 11 Host
     participant Script as PowerShell Assertions
-    participant Evidence as Evidence Package
+    participant Output as JSON Outputs
     participant CI as GitHub Actions
-    participant Reviewer as Auditor / Reviewer
+    participant Reviewer as Reviewer
 
-    Host->>Script: Execute deterministic checks
-    Script->>Evidence: Write results and metadata
-    Evidence->>Evidence: Calculate SHA-256 hashes
-    Evidence->>Evidence: Apply CMS signature
-    Evidence->>CI: Submit versioned evidence
-    CI->>CI: Validate structure and integrity
-    CI->>Reviewer: Publish reviewable result
+    Host->>Script: Execute baseline checks
+    Script->>Output: Write assertions.json and score.json
+    Output->>CI: Upload generated JSON artifacts
+    CI->>Reviewer: Expose workflow result and artifacts
+    Reviewer->>Reviewer: Inspect results and compare with baseline
 ```
 
-### Evidence trust chain
+### Optional local evidence workflow
 
 ```mermaid
 flowchart LR
-    A[Observed endpoint state] --> B[Deterministic assertion]
-    B --> C[Structured evidence]
-    C --> D[SHA-256 digest]
-    C --> E[CMS / PKCS#7 signature]
-    D --> F[Integrity verification]
-    E --> G[Authenticity verification]
-    F --> H[Review decision]
-    G --> H
+    A[History snapshot JSON] --> B[SHA-256 digest]
+    A --> C[Local Authenticode signing workflow]
+    B --> D[Digest comparison]
+    C --> E[Signature-status inspection]
+    D --> F[Review input]
+    E --> F
 ```
+
+The repository contains local scripts that can hash or sign selected history snapshots. These operations are separate from the current GitHub Actions workflow. Signature verification confirms the cryptographic relationship between an artifact and its signer certificate; signer trust requires an independently trusted certificate or chain and is not established merely by using `-noverify`.
 
 ## Quick review guide
 
 A reviewer should confirm, at minimum:
 
 1. the baseline version and stated scope;
-2. the expected state of each control;
-3. the assertion output for every control;
-4. the timestamp and collection context;
-5. the SHA-256 value of the evidence manifest;
-6. the CMS signature verification result;
-7. the GitHub Actions validation outcome;
+2. the implemented control IDs in `baseline/v2026.01.json`;
+3. the corresponding assertion logic;
+4. the generated `assertions.json` and `score.json` outputs;
+5. the workflow execution result;
+6. the uploaded artifact contents;
+7. any separately generated hash or signature material;
 8. any documented exceptions or drift.
 
 ## Security model highlights
 
-- TPM-backed disk encryption with BitLocker;
-- Secure Boot enforced;
-- hypervisor-enforced code integrity;
-- Windows Firewall enabled across all profiles;
+- Secure Boot evaluation;
+- VBS evaluation;
+- HVCI evaluation;
+- BitLocker protection-state evaluation;
 - deterministic control evaluation;
-- cryptographic integrity validation;
-- traceable evidence suitable for technical review.
+- versioned baseline definitions;
+- reviewable JSON evidence;
+- optional local hashing and signing workflows.
 
 ## Intended audience
 
@@ -209,6 +209,7 @@ A reviewer should confirm, at minimum:
 - Results depend on the tested Windows edition, build, firmware, hardware, and policy state.
 - Local administrative compromise can affect evidence generation unless controls are externally attested.
 - A passing assertion does not by itself prove complete organizational compliance.
+- The current GitHub Actions workflow uploads assertion and score JSON files but does not validate hashes, CMS artifacts, signer trust, or an evidence schema.
 - Cryptographic integrity does not guarantee that the original observation was complete or independently trusted.
 - The repository does not contain sensitive production secrets or private organizational policy.
 
@@ -224,6 +225,8 @@ Documentation corrections, reproducibility improvements, control-mapping proposa
 
 - [ ] Expand the control catalogue and evidence schema.
 - [ ] Add machine-readable control mappings.
+- [ ] Add CI validation for evidence hashes and schema structure.
+- [ ] Add a trust-anchor-based signature verification procedure.
 - [ ] Improve drift reporting between baseline versions.
 - [ ] Add reproducible evidence verification examples.
 - [ ] Add formal release notes and compatibility matrices.
