@@ -14,8 +14,9 @@ $resolvedBaselinePath = Join-Path $repositoryRoot $BaselinePath
 $assertionDirectory = Join-Path $PSScriptRoot 'assert'
 $baselineModulePath = Join-Path $PSScriptRoot 'lib/Baseline.psm1'
 $validationModulePath = Join-Path $PSScriptRoot 'lib/Validation.psm1'
+$scoreModulePath = Join-Path $PSScriptRoot 'lib/Score.psm1'
 
-foreach ($requiredModulePath in @($baselineModulePath, $validationModulePath)) {
+foreach ($requiredModulePath in @($baselineModulePath, $validationModulePath, $scoreModulePath)) {
     if (-not (Test-Path -LiteralPath $requiredModulePath -PathType Leaf)) {
         throw "Required module not found: $requiredModulePath"
     }
@@ -27,6 +28,7 @@ if (-not (Test-Path -LiteralPath $assertionDirectory -PathType Container)) {
 
 Import-Module -Name $baselineModulePath -Force -ErrorAction Stop
 Import-Module -Name $validationModulePath -Force -ErrorAction Stop
+Import-Module -Name $scoreModulePath -Force -ErrorAction Stop
 
 $baseline = Import-SecurityBaseline -Path $resolvedBaselinePath
 $baselineControls = @(Get-BaselineControls -Baseline $baseline)
@@ -64,11 +66,13 @@ foreach ($validationError in @($validation.Errors)) {
     $executionErrors.Add([string]$validationError)
 }
 
-$totalWeight = [double](($baselineControls | Measure-Object weight -Sum).Sum)
-$passedWeight = [double](($orderedResults | Where-Object Pass | Measure-Object Weight -Sum).Sum)
-$score = if ($totalWeight -gt 0) { [math]::Round(($passedWeight / $totalWeight) * 100, 2) } else { 0 }
-$timestampUtc = [DateTimeOffset]::UtcNow.ToString('o')
 $executionMode = if ($CiMode) { 'ci' } else { 'local' }
+$scoreObject = New-SecurityScoreSummary `
+    -Results $orderedResults `
+    -BaselineControls $baselineControls `
+    -BaselineVersion ([string]$baseline.baselineVersion) `
+    -Scope ([string]$baseline.scope) `
+    -ExecutionMode $executionMode
 
 $auditDirectory = Join-Path $repositoryRoot 'docs/audit/2026-01'
 $historyDirectory = Join-Path $repositoryRoot 'docs/audit/history'
@@ -78,22 +82,6 @@ $assertionsPath = Join-Path $auditDirectory 'assertions.json'
 $scorePath = Join-Path $auditDirectory 'score.json'
 
 ConvertTo-Json -InputObject $orderedResults -Depth 8 | Set-Content -LiteralPath $assertionsPath -Encoding utf8
-
-$scoreObject = [pscustomobject][ordered]@{
-    SchemaVersion   = '1.0'
-    BaselineVersion = [string]$baseline.baselineVersion
-    Scope           = [string]$baseline.scope
-    ExecutionMode   = $executionMode
-    Score           = $score
-    PassedWeight    = $passedWeight
-    TotalWeight     = $totalWeight
-    ControlCount    = $baselineControls.Count
-    PassedCount     = @($orderedResults | Where-Object Pass).Count
-    FailedCount     = @($orderedResults | Where-Object { $_.Status -eq 'Fail' }).Count
-    ErrorCount      = @($orderedResults | Where-Object { $_.Status -eq 'Error' }).Count
-    TimestampUtc    = $timestampUtc
-}
-
 $scoreObject | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $scorePath -Encoding utf8
 
 if (-not $CiMode) {
@@ -108,7 +96,7 @@ if ($executionErrors.Count -gt 0) {
 }
 
 if ($orderedResults.Pass -contains $false) {
-    throw "Security baseline FAILED with score $score%."
+    throw "Security baseline FAILED with score $($scoreObject.Score)%."
 }
 
-Write-Host "Security baseline PASSED with score $score% ($executionMode mode)."
+Write-Host "Security baseline PASSED with score $($scoreObject.Score)% ($executionMode mode)."
