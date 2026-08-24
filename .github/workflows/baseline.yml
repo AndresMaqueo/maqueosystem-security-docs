@@ -3,6 +3,9 @@ name: Security Baseline
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   baseline:
     runs-on: windows-latest
