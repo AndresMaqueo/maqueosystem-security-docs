@@ -1,10 +1,14 @@
-$bl = Get-BitLockerVolume -MountPoint "C:"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-[pscustomobject]@{
-  ControlId = "BL-001"
-  Name      = "BitLocker Enabled"
-  Expected  = "On"
-  Actual    = $bl.ProtectionStatus
-  Weight    = 15
-  Pass      = ($bl.ProtectionStatus -eq "On")
-}
+$resultModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'lib/Result.psm1'
+Import-Module -Name $resultModulePath -Force -ErrorAction Stop
+
+$bitLockerVolume = Get-BitLockerVolume -MountPoint 'C:'
+$protectionStatus = $bitLockerVolume.ProtectionStatus
+
+New-ControlResult `
+    -ControlId 'BL-001' `
+    -Actual ([string]$protectionStatus) `
+    -Pass ($protectionStatus -eq [Microsoft.BitLocker.Structures.BitLockerVolumeProtectionStatus]::On) `
+    -Message "BitLocker protection status for C: is '$protectionStatus'."

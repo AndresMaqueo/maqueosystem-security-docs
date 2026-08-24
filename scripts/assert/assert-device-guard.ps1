@@ -1,20 +1,21 @@
-$dg = Get-CimInstance -Namespace root\Microsoft\Windows\DeviceGuard `
-  -ClassName Win32_DeviceGuard
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-[pscustomobject]@{
-  ControlId = "DG-001"
-  Name      = "Virtualization-Based Security"
-  Expected  = 2
-  Actual    = $dg.VirtualizationBasedSecurityStatus
-  Weight    = 20
-  Pass      = ($dg.VirtualizationBasedSecurityStatus -eq 2)
-}
+$resultModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'lib/Result.psm1'
+Import-Module -Name $resultModulePath -Force -ErrorAction Stop
 
-[pscustomobject]@{
-  ControlId = "CI-001"
-  Name      = "Hypervisor-Enforced Code Integrity"
-  Expected  = 2
-  Actual    = $dg.CodeIntegrityPolicyEnforcementStatus
-  Weight    = 25
-  Pass      = ($dg.CodeIntegrityPolicyEnforcementStatus -eq 2)
-}
+$deviceGuard = Get-CimInstance -Namespace 'root\Microsoft\Windows\DeviceGuard' -ClassName 'Win32_DeviceGuard'
+$vbsStatus = [int]$deviceGuard.VirtualizationBasedSecurityStatus
+$codeIntegrityStatus = [int]$deviceGuard.CodeIntegrityPolicyEnforcementStatus
+
+New-ControlResult `
+    -ControlId 'DG-001' `
+    -Actual $vbsStatus `
+    -Pass ($vbsStatus -eq 2) `
+    -Message "VirtualizationBasedSecurityStatus is '$vbsStatus'."
+
+New-ControlResult `
+    -ControlId 'CI-001' `
+    -Actual $codeIntegrityStatus `
+    -Pass ($codeIntegrityStatus -eq 2) `
+    -Message "CodeIntegrityPolicyEnforcementStatus is '$codeIntegrityStatus'."

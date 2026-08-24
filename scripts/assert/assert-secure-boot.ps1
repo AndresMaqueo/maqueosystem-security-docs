@@ -1,10 +1,13 @@
-$sb = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-[pscustomobject]@{
-  ControlId = "SB-001"
-  Name      = "Secure Boot Enabled"
-  Expected  = $true
-  Actual    = $sb
-  Weight    = 20
-  Pass      = ($sb -eq $true)
-}
+$resultModulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'lib/Result.psm1'
+Import-Module -Name $resultModulePath -Force -ErrorAction Stop
+
+$secureBootEnabled = [bool](Confirm-SecureBootUEFI)
+
+New-ControlResult `
+    -ControlId 'SB-001' `
+    -Actual $secureBootEnabled `
+    -Pass $secureBootEnabled `
+    -Message "Secure Boot enabled state is '$secureBootEnabled'."
